@@ -1,124 +1,158 @@
-﻿#include<bangtal.h>
+﻿#define _CRT_SECURE_NO_WARNINGS
+#include<bangtal.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include<time.h>
 
-SceneID scene1, scene2;
+SceneID scene1;
 ObjectID startButton;
-ObjectID p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16;
+ObjectID game_board[16], original_board[16];
+int blank = 15;
 
+bool game = false;
 
-ObjectID createObject(const char* image, SceneID scene, int x, int y, bool shown) {
-	ObjectID object = createObject(image);
+TimerID timer;
+float timerValue = 0.05f;
+int mixCount;
 
-	locateObject(object, scene, x, y);
-
-	if (shown) {
-		showObject(object);
-	}
-	return object;
+int indexToX(int i) {
+	return 110 + 265 * (i % 4);
 }
 
-void location(int x, int y) {
-	if (110 < x && x < 375 && 120 < x && x < 240) {
-		x = 110, y = 120;
-	}
-	else if (375 < x && x < 640 && 120 < x && x < 240) {
-		x = 375, y = 120;
-	}
-	else if (640 < x && x < 905 && 120 < x && x < 240) {
-		x = 640, y = 120;
-	}
-	else if (905 < x && x < 1170 && 120 < x && x < 240) {
-		x = 905, y = 120;
-	}
+int indexToY(int i) {
+	return 480 - 120 * (i / 4);
+}
 
-	else if (110 < x && x < 375 && 240 < x && x < 360) {
-		x = 110, y = 240;
+int game_index(ObjectID object) {
+	for (int i = 0; i < 16; i++) {
+		if (game_board[i] == object) return i;
 	}
-	else if (375 < x && x < 640 && 240 < x && x < 360) {
-		x = 375, y = 240;
-	}
-	else if (640 < x && x < 905 && 240 < x && x < 360) {
-		x = 640, y = 240;
-	}
-	else if (905 < x && x < 1170 && 240 < x && x < 360) {
-		x = 905, y = 240;
-	}
+	return -1;
+}
 
-	else if (110 < x && x < 375 && 360 < x && x < 480) {
-		x = 110, y = 360;
-	}
-	else if (375 < x && x < 640 && 360 < x && x < 480) {
-		x = 375, y = 360;
-	}
-	else if (640 < x && x < 905 && 360 < x && x < 480) {
-		x = 640, y = 360;
-	}
-	else if (905 < x && x < 1170 && 360 < x && x < 480) {
-		x = 905, y = 360;
-	}
+void game_move(int i) {
+	ObjectID object = game_board[i];
+	game_board[i] = game_board[blank];
+	locateObject(game_board[i], scene1, indexToX(i), indexToY(i));
+	game_board[blank] = object;
+	locateObject(game_board[blank], scene1, indexToX(blank), indexToY(blank));
 
-	else if (110 < x && x < 375 && 480 < x && x < 600) {
-		x = 110, y = 480;
+	blank = i;
+}
+
+bool possible_move(int i) {
+	if (i % 4 > 0 && blank == i -1) return true;
+	if (i % 4 < 3 && blank == i + 1) return true;
+	if (i / 4 > 0 && blank == i - 4) return true;
+	if (i / 4 < 3 && blank == i + 4) return true;
+
+	return false;
+}
+
+int random_move() {
+	int i = -1;
+	while (i == -1) {
+		switch (rand() % 4) {
+			case 0: if (blank % 4 > 0) i = blank - 1;
+				break;
+			case 1: if (blank % 4 < 3) i = blank + 1;
+				break;
+			case 2: if (blank / 4 > 0) i = blank - 4;
+				break;
+			case 3: if (blank / 4 < 3) i = blank + 4;
+				break;
+		}
 	}
-	else if (375 < x && x < 640 && 480 < x && x < 600) {
-		x = 375, y = 480;
+	return i;
+}
+
+bool game_end() {
+	for (int i = 0; i < 16; i++) {
+		if (game_board[i] != original_board[i]) return false;
 	}
-	else if (640 < x && x < 905 && 480 < x && x < 600) {
-		x = 640, y = 480;
-	}
-	else if (905 < x && x < 1170 && 480 < x && x < 600) {
-		x = 905, y = 480;
-	}
+	return true;
+}
+
+void game_start() {
+	blank = 15;
+	hideObject(game_board[blank]);
+
+	mixCount = 50;
+
+	setTimer(timer, timerValue);
+	startTimer(timer);
+}
+
+ObjectID createObject(const char* image, SceneID scene, int x, int y, bool shown=true) {
+	ObjectID object = createObject(image);
+	locateObject(object, scene, x, y);
+
+	if (shown) showObject(object);
+	
+	return object;
 }
 
 void mousecallback(ObjectID object, int x, int y, MouseAction action) {
 
-	if (object == startButton) {
-		enterScene(scene2);
-		hideObject(startButton);
+	if (game) {
+		int i = game_index(object);
+		if (possible_move(i))
+			game_move(i);
+		if (game_end()) {
+			game = false;
+			showObject(startButton);
+			showObject(game_board[blank]);
+			showMessage("퍼즐 완성!");
+			}
 	}
 	else {
-		location(x, y);
-		if (action == MouseAction::MOUSE_DRAG_LEFT) {
-			locateObject(object, scene2, x - 265, y);
-		}
-		else if (action == MouseAction::MOUSE_DRAG_RIGHT) {
-			locateObject(object, scene2, x + 265, y);
-		}
-		else if (action == MouseAction::MOUSE_DRAG_UP) {
-			locateObject(object, scene2, x, y + 120);
-		}
-		else if (action == MouseAction::MOUSE_DRAG_DOWN) {
-			locateObject(object, scene2, x, y - 120);
+		if (object == startButton) {
+			game_start();
 		}
 	}
 }
 
+void timerCallback(TimerID timer) {
+	game_move(random_move());
+	
+	mixCount--;
+	if (mixCount > 0) {
+		setTimer(timer, timerValue);
+		startTimer(timer);
+	}
+	else {
+		game = true;
+		hideObject(startButton);
+	}
+}
+
+SceneID game_init() {
+	
+	scene1 = createScene("배경", "Images/배경.jpg");
+	
+	char buf[50];
+	for (int i = 0; i < 16; i++) {
+		sprintf(buf, "Images/%d.jpg", i + 1);
+		game_board[i] = createObject(buf, scene1, indexToX(i), indexToY(i));
+		original_board[i] = game_board[i];
+	}
+	
+	startButton = createObject("Images/start.png", scene1, 595, 80);
+	
+	timer = createTimer(timerValue);
+
+	return scene1;
+}
+
 int main() {
+	
+	srand(time(NULL));
 
-	setMouseCallback(mousecallback);
+	setGameOption(GameOption::GAME_OPTION_ROOM_TITLE, false);
+	setGameOption(GameOption::GAME_OPTION_MESSAGE_BOX_BUTTON, false);
+	setGameOption(GameOption::GAME_OPTION_INVENTORY_BUTTON, false);
 
-	scene1 = createScene("원본", "Images/원본.jpg");
-	scene2 = createScene("배경", "Images/배경.jpg");
-
-	startButton = createObject("Images/start.png", scene1, 595, 80, true);
-	p1 = createObject("Images/p1.jpg", scene2, 110, 480, true);
-	p2 = createObject("Images/p2.jpg", scene2, 375, 480, true);
-	p3 = createObject("Images/p3.jpg", scene2, 640, 480, true);
-	p4 = createObject("Images/p4.jpg", scene2, 905, 480, true);
-	p5 = createObject("Images/p5.jpg", scene2, 110, 360, true);
-	p6 = createObject("Images/p6.jpg", scene2, 375, 360, true);
-	p7 = createObject("Images/p7.jpg", scene2, 640, 360, true);
-	p8 = createObject("Images/p8.jpg", scene2, 905, 360, true);
-	p9 = createObject("Images/p9.jpg", scene2, 110, 240, true);
-	p10 = createObject("Images/p10.jpg", scene2, 375, 240, true);
-	p11 = createObject("Images/p11.jpg", scene2, 640, 240, true);
-	p12 = createObject("Images/p12.jpg", scene2, 905, 240, true);
-	p13 = createObject("Images/p13.jpg", scene2, 110, 120, true);
-	p14 = createObject("Images/p14.jpg", scene2, 375, 120, true);
-	p15 = createObject("Images/p15.jpg", scene2, 640, 120, true);
-	p16 = createObject("Images/p16.jpg", scene2, 905, 120, true);
-
-	startGame(scene1);
-
-
+	setMouseCallback(mousecallback);	
+	setTimerCallback(timerCallback);
+	startGame(game_init());
 }
